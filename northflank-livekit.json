@@ -1,0 +1,337 @@
+{
+  "apiVersion": "v1",
+  "kind": "DeploymentTemplate",
+  "project": {
+    "id": "livekit-voice-ai",
+    "name": "LiveKit Voice AI Complete Stack"
+  },
+  "spec": {
+    "project": {
+      "name": "livekit-voice-ai",
+      "description": "Complete LiveKit Voice AI stack with React frontend and Python agent",
+      "region": "us-east",
+      "color": "#002cf2"
+    },
+    "services": [
+      {
+        "name": "livekit-frontend",
+        "type": "combined-service",
+        "billing": {
+          "deploymentPlan": "nf-compute-20"
+        },
+        "deployment": {
+          "instances": 2,
+          "docker": {
+            "configType": "dockerfile",
+            "dockerfile": {
+              "buildEngine": "kaniko",
+              "dockerFilePath": "/agent-starter-react/Dockerfile",
+              "dockerWorkDir": "/agent-starter-react"
+            }
+          },
+          "storage": {
+            "ephemeralStorage": {
+              "storageSize": 1024
+            }
+          }
+        },
+        "git": {
+          "projectType": "github",
+          "gitCredential": "github-credential"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "internalPort": 3000,
+            "public": true,
+            "protocol": "HTTP",
+            "domains": [
+              {
+                "domain": "livekit-voice-ai.yourdomain.com"
+              }
+            ]
+          }
+        ],
+        "env": {
+          "NODE_ENV": "production",
+          "PORT": "3000",
+          "NEXT_TELEMETRY_DISABLED": "1"
+        },
+        "secretEnv": [
+          "LIVEKIT_API_KEY",
+          "LIVEKIT_API_SECRET",
+          "LIVEKIT_URL"
+        ],
+        "healthCheck": {
+          "path": "/api/health",
+          "port": 3000,
+          "initialDelaySeconds": 30,
+          "periodSeconds": 10,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3
+        },
+        "scaling": {
+          "horizontalPodAutoscaler": {
+            "minReplicas": 1,
+            "maxReplicas": 5,
+            "targetCPUUtilizationPercentage": 70,
+            "targetMemoryUtilizationPercentage": 80
+          }
+        },
+        "resources": {
+          "cpu": "500m",
+          "memory": "1Gi"
+        }
+      },
+      {
+        "name": "livekit-agent",
+        "type": "combined-service",
+        "billing": {
+          "deploymentPlan": "nf-compute-30"
+        },
+        "deployment": {
+          "instances": 2,
+          "docker": {
+            "configType": "dockerfile",
+            "dockerfile": {
+              "buildEngine": "kaniko",
+              "dockerFilePath": "/agent-starter-python/Dockerfile",
+              "dockerWorkDir": "/agent-starter-python"
+            }
+          },
+          "storage": {
+            "ephemeralStorage": {
+              "storageSize": 2048
+            }
+          }
+        },
+        "git": {
+          "projectType": "github",
+          "gitCredential": "github-credential"
+        },
+        "ports": [
+          {
+            "name": "health",
+            "internalPort": 8080,
+            "public": false,
+            "protocol": "HTTP"
+          }
+        ],
+        "env": {
+          "PYTHONPATH": "/app",
+          "PYTHONUNBUFFERED": "1",
+          "LOG_LEVEL": "INFO",
+          "AGENT_NAME": "livekit-voice-agent",
+          "WORKER_TIMEOUT": "300"
+        },
+        "secretEnv": [
+          "LIVEKIT_API_KEY",
+          "LIVEKIT_API_SECRET",
+          "LIVEKIT_URL",
+          "OPENAI_API_KEY",
+          "DEEPGRAM_API_KEY",
+          "CARTESIA_API_KEY"
+        ],
+        "healthCheck": {
+          "path": "/health",
+          "port": 8080,
+          "initialDelaySeconds": 60,
+          "periodSeconds": 30,
+          "timeoutSeconds": 10,
+          "failureThreshold": 3
+        },
+        "scaling": {
+          "horizontalPodAutoscaler": {
+            "minReplicas": 1,
+            "maxReplicas": 8,
+            "targetCPUUtilizationPercentage": 75,
+            "targetMemoryUtilizationPercentage": 85
+          }
+        },
+        "resources": {
+          "cpu": "1000m",
+          "memory": "2Gi"
+        }
+      },
+      {
+        "name": "mcp-proxy",
+        "type": "combined-service",
+        "billing": {
+          "deploymentPlan": "nf-compute-15"
+        },
+        "deployment": {
+          "instances": 1,
+          "docker": {
+            "configType": "dockerfile",
+            "dockerfile": {
+              "buildEngine": "kaniko",
+              "dockerFilePath": "/Dockerfile.backend",
+              "dockerWorkDir": "/"
+            }
+          },
+          "storage": {
+            "ephemeralStorage": {
+              "storageSize": 1024
+            }
+          }
+        },
+        "git": {
+          "projectType": "github",
+          "gitCredential": "github-credential"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "internalPort": 8002,
+            "public": true,
+            "protocol": "HTTP",
+            "domains": [
+              {
+                "domain": "mcp-proxy.yourdomain.com"
+              }
+            ]
+          }
+        ],
+        "env": {
+          "PYTHONPATH": "/app",
+          "PYTHONUNBUFFERED": "1",
+          "LOG_LEVEL": "INFO",
+          "MCP_PROXY_PORT": "8002"
+        },
+        "secretEnv": [
+          "RUBE_API_KEY"
+        ],
+        "healthCheck": {
+          "path": "/health",
+          "port": 8002,
+          "initialDelaySeconds": 30,
+          "periodSeconds": 15,
+          "timeoutSeconds": 5,
+          "failureThreshold": 3
+        },
+        "scaling": {
+          "horizontalPodAutoscaler": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "targetCPUUtilizationPercentage": 70
+          }
+        },
+        "resources": {
+          "cpu": "250m",
+          "memory": "512Mi"
+        }
+      }
+    ],
+    "addons": [
+      {
+        "name": "redis-cache",
+        "type": "redis",
+        "billing": {
+          "deploymentPlan": "nf-addon-5"
+        },
+        "typeSpecificSettings": {
+          "redis": {
+            "version": "7",
+            "maxMemory": "1gb",
+            "maxMemoryPolicy": "allkeys-lru",
+            "persistence": "rdb"
+          }
+        },
+        "env": {
+          "REDIS_PORT": "6379"
+        }
+      }
+    ],
+    "secrets": [
+      {
+        "name": "LIVEKIT_API_KEY",
+        "description": "LiveKit API key for authentication"
+      },
+      {
+        "name": "LIVEKIT_API_SECRET",
+        "description": "LiveKit API secret for authentication"
+      },
+      {
+        "name": "LIVEKIT_URL",
+        "description": "LiveKit server WebSocket URL"
+      },
+      {
+        "name": "OPENAI_API_KEY",
+        "description": "OpenAI API key for LLM functionality"
+      },
+      {
+        "name": "DEEPGRAM_API_KEY",
+        "description": "Deepgram API key for speech-to-text"
+      },
+      {
+        "name": "CARTESIA_API_KEY",
+        "description": "Cartesia API key for text-to-speech"
+      },
+      {
+        "name": "RUBE_API_KEY",
+        "description": "RUBE MCP server API key for integrations"
+      }
+    ],
+    "networking": {
+      "privateNetworking": true,
+      "internalDNS": true,
+      "networkPolicies": [
+        {
+          "name": "livekit-internal",
+          "rules": [
+            {
+              "from": ["livekit-voice-ai"],
+              "to": ["livekit-voice-ai"],
+              "ports": ["3000", "8002", "8080"]
+            },
+            {
+              "from": ["livekit-voice-ai"],
+              "to": ["external"],
+              "ports": ["443", "80", "9443"]
+            }
+          ]
+        }
+      ]
+    },
+    "monitoring": {
+      "observability": {
+        "enabled": true,
+        "metrics": true,
+        "logs": true,
+        "traces": true
+      },
+      "alerts": [
+        {
+          "name": "high-cpu-usage",
+          "condition": "cpu > 80%",
+          "duration": "5m",
+          "severity": "warning"
+        },
+        {
+          "name": "memory-usage",
+          "condition": "memory > 85%",
+          "duration": "3m",
+          "severity": "critical"
+        },
+        {
+          "name": "service-down",
+          "condition": "up == 0",
+          "duration": "1m",
+          "severity": "critical"
+        },
+        {
+          "name": "livekit-agent-errors",
+          "condition": "error_rate > 5%",
+          "duration": "2m",
+          "severity": "warning"
+        },
+        {
+          "name": "frontend-response-time",
+          "condition": "response_time > 2s",
+          "duration": "3m",
+          "severity": "warning"
+        }
+      ]
+    }
+  }
+}

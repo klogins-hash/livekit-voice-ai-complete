@@ -1,0 +1,29 @@
+# Northflank Environment Configuration Template
+# Copy this file and fill in your actual values
+
+# LiveKit Configuration
+LIVEKIT_API_KEY: "your_livekit_api_key_here"
+LIVEKIT_API_SECRET: "your_livekit_api_secret_here"
+LIVEKIT_URL: "wss://your-project.livekit.cloud"
+
+# AI Service API Keys
+OPENAI_API_KEY: "sk-your_openai_api_key_here"
+DEEPGRAM_API_KEY: "your_deepgram_api_key_here"
+CARTESIA_API_KEY: "sk_car_your_cartesia_api_key_here"
+
+# MCP Integration
+RUBE_API_KEY: "Bearer your_rube_api_key_here"
+
+# Application Configuration
+NODE_ENV: "production"
+PYTHONUNBUFFERED: "1"
+LOG_LEVEL: "INFO"
+NEXT_TELEMETRY_DISABLED: "1"
+
+# Optional: Custom Domain Configuration
+# CUSTOM_DOMAIN: "your-domain.com"
+# SSL_ENABLED: "true"
+
+# Optional: Monitoring and Analytics
+# SENTRY_DSN: "your_sentry_dsn_here"
+# ANALYTICS_ID: "your_analytics_id_here"

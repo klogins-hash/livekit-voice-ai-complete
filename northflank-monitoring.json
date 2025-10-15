@@ -1,0 +1,167 @@
+{
+  "monitoring": {
+    "healthChecks": {
+      "frontend": {
+        "path": "/api/health",
+        "port": 3000,
+        "initialDelaySeconds": 30,
+        "periodSeconds": 10,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3,
+        "successThreshold": 1
+      },
+      "agent": {
+        "path": "/health",
+        "port": 8080,
+        "initialDelaySeconds": 60,
+        "periodSeconds": 30,
+        "timeoutSeconds": 10,
+        "failureThreshold": 3,
+        "successThreshold": 1
+      },
+      "mcpProxy": {
+        "path": "/health",
+        "port": 8002,
+        "initialDelaySeconds": 30,
+        "periodSeconds": 15,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3,
+        "successThreshold": 1
+      }
+    },
+    "metrics": {
+      "enabled": true,
+      "customMetrics": [
+        {
+          "name": "livekit_connections",
+          "description": "Number of active LiveKit connections",
+          "type": "gauge"
+        },
+        {
+          "name": "voice_sessions",
+          "description": "Number of active voice sessions",
+          "type": "gauge"
+        },
+        {
+          "name": "ai_response_time",
+          "description": "AI response time in milliseconds",
+          "type": "histogram"
+        },
+        {
+          "name": "transcription_accuracy",
+          "description": "Speech-to-text transcription accuracy",
+          "type": "gauge"
+        }
+      ]
+    },
+    "alerts": [
+      {
+        "name": "high-cpu-usage",
+        "description": "Alert when CPU usage is high",
+        "condition": "cpu > 80%",
+        "duration": "5m",
+        "severity": "warning",
+        "channels": ["email", "slack"]
+      },
+      {
+        "name": "memory-usage",
+        "description": "Alert when memory usage is high",
+        "condition": "memory > 85%",
+        "duration": "3m",
+        "severity": "critical",
+        "channels": ["email", "slack", "pagerduty"]
+      },
+      {
+        "name": "service-down",
+        "description": "Alert when service is down",
+        "condition": "up == 0",
+        "duration": "1m",
+        "severity": "critical",
+        "channels": ["email", "slack", "pagerduty"]
+      },
+      {
+        "name": "livekit-connection-errors",
+        "description": "Alert when LiveKit connection errors are high",
+        "condition": "livekit_connection_errors > 5",
+        "duration": "2m",
+        "severity": "warning",
+        "channels": ["email", "slack"]
+      },
+      {
+        "name": "ai-response-time-high",
+        "description": "Alert when AI response time is too high",
+        "condition": "ai_response_time > 5000",
+        "duration": "3m",
+        "severity": "warning",
+        "channels": ["email"]
+      },
+      {
+        "name": "frontend-error-rate",
+        "description": "Alert when frontend error rate is high",
+        "condition": "error_rate > 5%",
+        "duration": "2m",
+        "severity": "warning",
+        "channels": ["email", "slack"]
+      }
+    ],
+    "dashboards": [
+      {
+        "name": "LiveKit Voice AI Overview",
+        "panels": [
+          {
+            "title": "Active Connections",
+            "type": "stat",
+            "metric": "livekit_connections"
+          },
+          {
+            "title": "Voice Sessions",
+            "type": "stat", 
+            "metric": "voice_sessions"
+          },
+          {
+            "title": "CPU Usage",
+            "type": "graph",
+            "metric": "cpu_usage"
+          },
+          {
+            "title": "Memory Usage",
+            "type": "graph",
+            "metric": "memory_usage"
+          },
+          {
+            "title": "AI Response Time",
+            "type": "histogram",
+            "metric": "ai_response_time"
+          },
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "metric": "request_rate"
+          }
+        ]
+      }
+    ]
+  },
+  "logging": {
+    "level": "INFO",
+    "structured": true,
+    "retention": "30d",
+    "aggregation": {
+      "enabled": true,
+      "rules": [
+        {
+          "pattern": "ERROR",
+          "action": "alert",
+          "threshold": 10,
+          "window": "5m"
+        },
+        {
+          "pattern": "WARN",
+          "action": "aggregate",
+          "threshold": 50,
+          "window": "10m"
+        }
+      ]
+    }
+  }
+}
