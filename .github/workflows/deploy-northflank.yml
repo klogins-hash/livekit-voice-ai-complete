@@ -1,0 +1,104 @@
+name: Deploy to Northflank
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'agent-starter-react/**'
+      - 'agent-starter-python/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+env:
+  NORTHFLANK_PROJECT_ID: gerry-adams-revolt
+
+jobs:
+  deploy-frontend:
+    name: Deploy React Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'agent-starter-react/package-lock.json'
+        
+    - name: Install pnpm
+      run: npm install -g pnpm
+      
+    - name: Install dependencies
+      working-directory: ./agent-starter-react
+      run: pnpm install --frozen-lockfile
+      
+    - name: Build application
+      working-directory: ./agent-starter-react
+      run: |
+        export NEXT_TELEMETRY_DISABLED=1
+        pnpm build
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./agent-starter-react
+        file: ./agent-starter-react/Dockerfile
+        push: true
+        tags: |
+          registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-frontend:latest
+          registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-frontend:${{ github.sha }}
+        registry: registry.northflank.com
+        username: ${{ secrets.NORTHFLANK_REGISTRY_USERNAME }}
+        password: ${{ secrets.NORTHFLANK_REGISTRY_PASSWORD }}
+        
+    - name: Deploy to Northflank
+      uses: northflank/deploy-action@v1
+      with:
+        northflank-api-token: ${{ secrets.NORTHFLANK_API_TOKEN }}
+        project-id: ${{ env.NORTHFLANK_PROJECT_ID }}
+        service-id: livekit-frontend
+        image-url: registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-frontend:${{ github.sha }}
+
+  deploy-agent:
+    name: Deploy Python Agent
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install uv
+      run: pip install uv
+      
+    - name: Test Python dependencies
+      working-directory: ./agent-starter-python
+      run: uv sync --locked
+      
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./agent-starter-python
+        file: ./agent-starter-python/Dockerfile
+        push: true
+        tags: |
+          registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-agent:latest
+          registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-agent:${{ github.sha }}
+        registry: registry.northflank.com
+        username: ${{ secrets.NORTHFLANK_REGISTRY_USERNAME }}
+        password: ${{ secrets.NORTHFLANK_REGISTRY_PASSWORD }}
+        
+    - name: Deploy to Northflank
+      uses: northflank/deploy-action@v1
+      with:
+        northflank-api-token: ${{ secrets.NORTHFLANK_API_TOKEN }}
+        project-id: ${{ env.NORTHFLANK_PROJECT_ID }}
+        service-id: livekit-agent
+        image-url: registry.northflank.com/${{ env.NORTHFLANK_PROJECT_ID }}/livekit-agent:${{ github.sha }}

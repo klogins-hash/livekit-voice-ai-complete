@@ -1,0 +1,47 @@
+name: Simple Deploy to Northflank
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  trigger-northflank-rebuild:
+    name: Trigger Northflank Rebuild
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Northflank CLI
+      run: npm install -g @northflank/cli
+      
+    - name: Login to Northflank
+      run: echo "${{ secrets.NORTHFLANK_API_TOKEN }}" | northflank login --token
+      
+    - name: Trigger Frontend Rebuild
+      run: |
+        northflank patch service combined \
+          --project gerry-adams-revolt \
+          --service livekit-frontend \
+          --input '{"buildConfiguration":{"ciIgnoreFlagsEnabled":false}}'
+      continue-on-error: true
+      
+    - name: Trigger Agent Rebuild  
+      run: |
+        northflank patch service combined \
+          --project gerry-adams-revolt \
+          --service livekit-agent \
+          --input '{"buildConfiguration":{"ciIgnoreFlagsEnabled":false}}'
+      continue-on-error: true
+      
+    - name: Wait for builds to start
+      run: sleep 10
+      
+    - name: Check build status
+      run: |
+        echo "Frontend status:"
+        northflank get service --project gerry-adams-revolt --service livekit-frontend --output json | jq '.status'
+        echo "Agent status:"
+        northflank get service --project gerry-adams-revolt --service livekit-agent --output json | jq '.status'
