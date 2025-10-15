@@ -1,7 +1,14 @@
-# Fixed Dockerfile for Next.js with pnpm
+# Production Dockerfile matching local success
 FROM node:18
 
 WORKDIR /app
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables early
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -9,18 +16,28 @@ RUN npm install -g pnpm
 # Copy package files first for better caching
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies with exact versions
+RUN pnpm install --frozen-lockfile --production=false
 
-# Copy source code
+# Copy all source code
 COPY . .
 
-# Build
-ENV NEXT_TELEMETRY_DISABLED=1
+# Build with verbose output for debugging
 RUN pnpm build
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
 
 # Expose port
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Start
 CMD ["pnpm", "start"]
