@@ -1,0 +1,69 @@
+# Simplified Docker for Backend Services Only
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python agent code
+COPY agent-starter-python/ ./agent-starter-python/
+COPY mcp_enabled_proxy.py ./
+COPY *.py ./
+
+# Install Python dependencies
+WORKDIR /app/agent-starter-python
+RUN pip install uv && uv sync
+
+# Go back to app root
+WORKDIR /app
+
+# Install proxy dependencies
+RUN pip install fastapi uvicorn python-dotenv httpx
+
+# Create startup script for backend services only
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "🚀 Starting Voice AI Backend Services with Real MCP Integration..."\n\
+echo "This runs the proxy and agent in the same process context for MCP access"\n\
+\n\
+# Export environment variables\n\
+export PYTHONPATH="/app:$PYTHONPATH"\n\
+\n\
+# Start MCP-enabled proxy server in background\n\
+echo "📡 Starting MCP-enabled proxy server..."\n\
+python3 mcp_enabled_proxy.py &\n\
+PROXY_PID=$!\n\
+sleep 3\n\
+\n\
+echo "🤖 Starting LiveKit agent..."\n\
+cd /app/agent-starter-python && uv run python src/agent.py start &\n\
+AGENT_PID=$!\n\
+sleep 3\n\
+\n\
+echo "✅ Backend services started successfully!"\n\
+echo "📊 Service Status:"\n\
+echo "   📡 MCP Proxy: http://localhost:8002"\n\
+echo "   🤖 LiveKit Agent: Connected"\n\
+echo ""\n\
+echo "🎤 Backend ready for voice commands!"\n\
+echo "Note: Frontend should be run separately on the host"\n\
+\n\
+# Keep container running and show logs\n\
+tail -f /dev/null\n\
+' > /app/start_backend.sh && chmod +x /app/start_backend.sh
+
+# Expose ports
+EXPOSE 8002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Start backend services
+CMD ["/app/start_backend.sh"]

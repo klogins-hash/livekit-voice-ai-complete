@@ -1,0 +1,83 @@
+
+# Use Python 3.11 as base image
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    nodejs \
+    npm \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm for frontend
+RUN npm install -g pnpm
+
+# Set working directory
+WORKDIR /app
+
+# Copy everything
+COPY . .
+
+# Install Python dependencies
+WORKDIR /app/agent-starter-python
+RUN pip install uv && uv sync
+
+# Install frontend dependencies and build
+WORKDIR /app/agent-starter-react
+RUN pnpm install && pnpm build
+
+# Go back to app root
+WORKDIR /app
+
+# Install proxy dependencies
+RUN pip install fastapi uvicorn python-dotenv httpx
+
+# Create startup script that runs everything in the same process context
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "🚀 Starting Voice AI System with Real MCP Integration..."\n\
+echo "This runs everything in the same process context for MCP access"\n\
+\n\
+# Export environment variables\n\
+export PYTHONPATH="/app:$PYTHONPATH"\n\
+\n\
+# Start services in background\n\
+echo "📡 Starting MCP-enabled proxy server..."\n\
+cd /app && python3 mcp_enabled_proxy.py &\n\
+PROXY_PID=$!\n\
+sleep 3\n\
+\n\
+echo "🤖 Starting LiveKit agent..."\n\
+cd /app/agent-starter-python && uv run python src/agent.py start &\n\
+AGENT_PID=$!\n\
+sleep 3\n\
+\n\
+echo "🌐 Starting frontend server..."\n\
+cd /app/agent-starter-react && pnpm start &\n\
+FRONTEND_PID=$!\n\
+sleep 3\n\
+\n\
+echo "✅ All services started successfully!"\n\
+echo "📊 Service Status:"\n\
+echo "   📡 MCP Proxy: http://localhost:8002"\n\
+echo "   🤖 LiveKit Agent: Connected"\n\
+echo "   🌐 Frontend: http://localhost:3001"\n\
+echo ""\n\
+echo "🎤 Ready for voice commands!"\n\
+\n\
+# Keep container running and show logs\n\
+tail -f /dev/null\n\
+' > /app/start_unified.sh && chmod +x /app/start_unified.sh
+
+# Expose ports
+EXPOSE 3001 8002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Start everything
+CMD ["/app/start_unified.sh"]
