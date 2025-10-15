@@ -12,7 +12,7 @@ RUN npm install -g pnpm
 
 # Install dependencies based on the preferred package manager
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm ci --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -40,6 +40,9 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
@@ -60,6 +63,6 @@ ENV HOSTNAME "0.0.0.0"
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 CMD ["node", "server.js"]
