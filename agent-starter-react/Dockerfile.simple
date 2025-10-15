@@ -1,20 +1,26 @@
-# Ultra-simple Dockerfile for Next.js
+# Fixed Dockerfile for Next.js with pnpm
 FROM node:18
 
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# Install pnpm
+RUN npm install -g pnpm
 
-# Install dependencies with npm (more reliable than pnpm in containers)
-RUN npm install
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
 
 # Build
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN pnpm build
 
 # Expose port
 EXPOSE 3000
 
 # Start
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
