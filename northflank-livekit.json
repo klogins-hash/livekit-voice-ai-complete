@@ -25,8 +25,8 @@
             "configType": "dockerfile",
             "dockerfile": {
               "buildEngine": "kaniko",
-              "dockerFilePath": "/agent-starter-react/Dockerfile",
-              "dockerWorkDir": "/agent-starter-react"
+              "dockerFilePath": "/agent-starter-react/Dockerfile.root",
+              "dockerWorkDir": "/"
             }
           },
           "storage": {
