@@ -1,0 +1,2 @@
+Build trigger: 2025-10-17T15:37:00Z
+Fix Docker working directory configuration for frontend build
